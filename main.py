@@ -114,48 +114,65 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
     if not username:
         raise HTTPException(status_code=401)
     
-    uuid = get_uuid_by_name(username)
+    uuid = await get_uuid_by_name(username)
     upload_progress[username] = {"pct": 0, "done": False, "error": False}
     
-    temp_path = f"{uuid}_{file.filename}"
-    async with aiofiles.open(temp_path, "wb") as buffer:
-        await buffer.write(await file.read())
+    temp_path = f"/tmp/{uuid}_{file.filename}"
 
-    file_size = os.path.getsize(temp_path)
-    MB = 1024**2
-    if file_size <= 10 * MB:
-        chunks_size = 1 * MB
-    elif file_size <= 50 * MB:
-        chunks_size = 2 * MB
-    elif file_size <= 100 * MB:
-        chunks_size = 5 * MB
-    elif file_size <= 1000 * MB:
-        chunks_size = 10 * MB
-    else:
-        chunks_size = 20 * MB
+    try:
+        # Bug #3 fix: stream to disk in 1MB pieces, don't load entire file into memory
+        async with aiofiles.open(temp_path, "wb") as buffer:
+            while chunk_data := await file.read(1024 * 1024):
+                await buffer.write(chunk_data)
 
-    chunks = await Split(temp_path, chunks_size)
-    total  = len(chunks)
+        file_size = os.path.getsize(temp_path)
+        MB = 1024**2
+        if file_size <= 10 * MB:
+            chunks_size = 1 * MB
+        elif file_size <= 50 * MB:
+            chunks_size = 2 * MB
+        elif file_size <= 100 * MB:
+            chunks_size = 5 * MB
+        elif file_size <= 1000 * MB:
+            chunks_size = 10 * MB
+        else:
+            chunks_size = 20 * MB
 
-    upload_progress[username]["pct"] = 5
+        chunks = await Split(temp_path, chunks_size)
+        total = len(chunks)
 
-    sent = 0
-    for chunk in chunks:
-        msg = await Send(client, "me", chunk)
-        if not msg:
-            raise Exception("Send failed")
-        sent += 1
-        upload_progress[username]["pct"] = 5 + int((sent / total) * 90)
-        if os.path.exists(chunk):
-            os.remove(chunk)
+        upload_progress[username]["pct"] = 5
 
-    currentid_chunk_list = []
-    os.remove(temp_path)
+        # Bug #1 fix: collect message ids returned by Send()
+        sent = 0
+        currentid_chunk_list = []
+        for chunk in chunks:
+            try:
+                msg = await Send(client, "me", chunk)
+                if not msg:
+                    raise Exception("Send failed")
+                currentid_chunk_list.append(msg.id)
+                sent += 1
+                upload_progress[username]["pct"] = 5 + int((sent / total) * 90)
+            finally:
+                # Bug #4 fix: always clean up chunk files, even on error
+                if os.path.exists(chunk):
+                    os.remove(chunk)
 
-    await add_file_to_db(username, file.filename, currentid_chunk_list)
-    upload_progress[username] = {"pct": 100, "done": True, "error": False}
+        await add_file_to_db(username, file.filename, currentid_chunk_list)
+        upload_progress[username] = {"pct": 100, "done": True, "error": False}
 
-    return {"ok": True} 
+    except Exception as e:
+            import traceback
+            traceback.print_exc()  # <-- вот сюда
+            upload_progress[username] = {"pct": 0, "done": False, "error": True}
+            raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
+    finally:
+        # Bug #4 fix: always clean up temp file
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+    return {"ok": True}
 
 @app.get("/upload/progress")
 async def upload_progress_stream(request: Request):
