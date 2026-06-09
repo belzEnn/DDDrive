@@ -85,6 +85,7 @@
         <div class="files-head">
           <div></div>
           <div>Name</div>
+          <div>Size</div>
           <div>Date</div>
           <div class="col-right">Actions</div>
         </div>
@@ -105,6 +106,17 @@
             <img src="{{ url_for('assets', path=file.file_icon) }}" width="16" height="16" alt="">
           </div>
           <div class="file-name">{{ file.file_name }}</div>
+          <div class="file-size">
+            {% if file.file_size < 1024 %}
+              {{ file.file_size }} B
+            {% elif file.file_size < 1048576 %}
+              {{ (file.file_size / 1024) | round(1) }} KB
+            {% elif file.file_size < 1073741824 %}
+              {{ (file.file_size / 1048576) | round(1) }} MB
+            {% else %}
+              {{ (file.file_size / 1073741824) | round(2) }} GB
+            {% endif %}
+          </div>
           <div class="file-date">{{ file.time.strftime('%b %d, %Y') }}</div>
           <div class="file-actions">
             <form action="/download" method="post" style="display:inline">
@@ -116,6 +128,16 @@
                   <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
               </button>
+            </form>
+            <form action="/rename" method="post" style="display:inline" id="rename-form-{{ file.id }}">
+              <input type="hidden" name="file_id" value="{{ file.id }}">
+              <input type="text" name="new_name" id="rename-input-{{ file.id }}"
+                value="{{ file.file_name }}"
+                style="display:none; width:140px; font-size:12px; padding:2px 6px; border:1px solid var(--acc); border-radius:6px; background:var(--surface); color:var(--text);"
+                onblur="setTimeout(function(){ submitRename('{{ file.id }}', '{{ file.file_name }}') }, 150)"
+                onkeydown="handleRenameKey(event, '{{ file.id }}', '{{ file.file_name }}')">
+              <button type="button" class="act-btn act-btn--rename" title="Rename"
+                onclick="startRename('{{ file.id }}')">R</button>
             </form>
             <form class="delete-form" style="display:inline">
               <input type="hidden" name="file_id" value="{{ file.id }}">
@@ -164,6 +186,46 @@
     </div>
   </div>
 
+  <script>
+    var _renaming = false;
+
+    function startRename(fileId) {
+      var input = document.getElementById('rename-input-' + fileId);
+      input.style.display = 'inline-block';
+      input.focus();
+      input.select();
+    }
+
+    function submitRename(fileId, originalName) {
+      if (_renaming) return;
+      var input = document.getElementById('rename-input-' + fileId);
+      var newName = input.value.trim();
+      if (!newName || newName === originalName) {
+        cancelRename(fileId, originalName);
+        return;
+      }
+      _renaming = true;
+      document.getElementById('rename-form-' + fileId).submit();
+    }
+
+    function cancelRename(fileId, originalName) {
+      if (_renaming) return;
+      var input = document.getElementById('rename-input-' + fileId);
+      input.value = originalName;
+      input.style.display = 'none';
+    }
+
+    function handleRenameKey(e, fileId, originalName) {
+      if (e.key === 'Escape') {
+        cancelRename(fileId, originalName);
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitRename(fileId, originalName);
+      }
+    }
+  </script>
   <script src="{{ url_for('static', path='main.js') }}" defer></script>
 </body>
 </html>

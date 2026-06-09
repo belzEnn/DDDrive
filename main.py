@@ -16,9 +16,9 @@ from fastapi.staticfiles import StaticFiles
 
 from core.SendFile import Send, Split
 from core.GetFile import Get, Merge
-from database.Database import (create_db_and_tables, add_user_to_db, add_file_to_db, 
-                               get_user_files, get_file_by_id, delete_file, get_user_by_name, 
-                               verify_password, get_uuid_by_name
+from database.Database import (create_db_and_tables, add_user_to_db, add_file_to_db,
+                               get_user_files, get_file_by_id, delete_file, get_user_by_name,
+                               verify_password, get_uuid_by_name, rename_file
 )
 load_dotenv()
 
@@ -61,7 +61,35 @@ def get_current_user_redirect(request: Request) -> str:
         raise HTTPException(status_code=307, headers={"Location": "/"})
 
 
-# call functions on startup
+
+def create_token(username: str) -> str:
+    payload = {
+        "sub": username,
+        "exp": datetime.now(timezone.utc) + timedelta(days=1)
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+
+def get_current_user(request: Request) -> str:
+    token = request.cookies.get("token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return payload["sub"]
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def get_current_user_redirect(request: Request) -> str:
+    try:
+        return get_current_user(request)
+    except HTTPException:
+        raise HTTPException(status_code=307, headers={"Location": "/"})
+
+
 @asynccontextmanager
 async def start(app: FastAPI):
     await create_db_and_tables()
@@ -183,7 +211,7 @@ async def upload_file(request: Request, file: UploadFile = File(...), username: 
                 if os.path.exists(chunk):
                     os.remove(chunk)
 
-        await add_file_to_db(username, file.filename, currentid_chunk_list)
+        await add_file_to_db(username, file.filename, currentid_chunk_list, file_size)
         upload_progress[username] = {"pct": 100, "done": True, "error": False}
 
     except Exception as e:
@@ -237,7 +265,6 @@ async def download_file(file_id: int = Form(...), username: str = Depends(get_cu
         filename=output_name,
         background=BackgroundTasks().add_task(os.remove, output_name)
     )
-
 
 @app.post("/delete")
 async def delete_file_endpoint(file_id: int = Form(...), username: str = Depends(get_current_user)):
