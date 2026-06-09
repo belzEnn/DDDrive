@@ -389,8 +389,7 @@ body {
 
 .files-head {
   display: grid;
-  grid-template-columns: 34px 1fr 120px 76px;
-  gap: 8px;
+  grid-template-columns: 34px 1fr 80px 120px 76px;  gap: 8px;
   padding: 9px 14px;
   border-bottom: 1px solid var(--border);
   font-size: 10px;
@@ -404,7 +403,7 @@ body {
 
 .file-row {
   display: grid;
-  grid-template-columns: 34px 1fr 120px 76px;
+  grid-template-columns: 34px 1fr 80px 120px 76px;
   gap: 8px;
   padding: 11px 14px;
   border-bottom: 1px solid var(--border);
