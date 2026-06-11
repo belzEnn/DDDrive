@@ -279,7 +279,17 @@ async def delete_file_endpoint(file_id: int = Form(...), username: str = Depends
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail="Error deleting from the server")
-
+@app.post("/rename")
+async def rename_file_endpoint(
+    file_id: int = Form(...),
+    new_name: str = Form(...),
+    username: str = Depends(get_current_user)
+):
+    db_file = await get_file_by_id(file_id)
+    if not db_file:
+        raise HTTPException(status_code=404, detail="File not found")
+    await rename_file(file_id, new_name)
+    return RedirectResponse(url="/dashboard", status_code=303)
 
 if __name__ == '__main__':
     import uvicorn

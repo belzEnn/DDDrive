@@ -2,7 +2,8 @@
 img.png
 test.session
 storage.db
-
+.DS_Store
+.vscode
 tmp/3
 # Byte-compiled / optimized / DLL files
 __pycache__/
