@@ -125,7 +125,7 @@ fileInput.addEventListener('change', () => {
 });
 
 // ── DELETE MODAL ───────────────────────────────────────────────────────────
-const modal = document.getElementById('modal');
+const modal = document.getElementById('delete-modal');
 let formToSubmit = null;
 
 document.addEventListener('submit', (e) => {
@@ -168,3 +168,141 @@ document.addEventListener('drop', (e) => {
   const files = e.dataTransfer.files;
   if (files.length > 0) startUpload(files[0]);
 });
+// ── RENAME MODAL ───────────────────────────────────────────────────────────
+const renameModal = document.getElementById('rename-modal');
+const extensionModal = document.getElementById('extension-modal');
+
+let currentFileId = null;
+let currentFileName = '';
+let pendingNewName = '';
+let cachedFormData = null;
+
+function openRenameModal(fileId, fileName) {
+  currentFileId = fileId;
+  currentFileName = fileName;
+  
+  const form = document.getElementById('rename-form-' + fileId);
+  cachedFormData = new FormData(form);
+  
+  const input = document.getElementById('rename-modal-input');
+  input.value = fileName;
+  renameModal.style.display = 'flex';
+  input.focus();
+  input.select();
+}
+
+function closeRenameModal() {
+  renameModal.style.display = 'none';
+}
+
+function getExtension(filename) {
+  const parts = filename.split('.');
+  return parts.length > 1 ? parts.pop().toLowerCase() : '';
+}
+
+function submitRename() {
+  const input = document.getElementById('rename-modal-input');
+  const newName = input.value.trim();
+  
+  if (!newName || newName === currentFileName) {
+    closeRenameModal();
+    resetRenameState();
+    return;
+  }
+  
+  const oldExt = getExtension(currentFileName);
+  const newExt = getExtension(newName);
+  
+  if (oldExt && newExt && oldExt !== newExt) {
+    pendingNewName = newName;
+    closeRenameModal();
+    extensionModal.style.display = 'flex';
+    return;
+  }
+  
+  performRename(newName);
+}
+
+function performRename(newName) {
+  if (!cachedFormData || !currentFileId) {
+    alert('Error: form data not found');
+    return;
+  }
+  
+  cachedFormData.set('new_name', newName);
+  
+  fetch('/rename', { 
+    method: 'POST', 
+    body: cachedFormData 
+  })
+  .then(res => {
+    if (res.ok) {
+      location.reload();
+    } else {
+      alert('Error renaming file');
+      console.error('Rename failed:', res.status);
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    alert('Network error');
+  });
+}
+
+function resetRenameState() {
+  currentFileId = null;
+  currentFileName = '';
+  pendingNewName = '';
+  cachedFormData = null;
+}
+
+// Event listeners for rename modals
+if (renameModal) {
+  document.getElementById('rename-modal-cancel').onclick = () => {
+    closeRenameModal();
+    resetRenameState();
+  };
+  
+  document.getElementById('rename-modal-confirm').onclick = submitRename;
+  
+  const renameInput = document.getElementById('rename-modal-input');
+  if (renameInput) {
+    renameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitRename();
+      if (e.key === 'Escape') {
+        closeRenameModal();
+        resetRenameState();
+      }
+    });
+  }
+  
+  window.addEventListener('click', (e) => {
+    if (e.target === renameModal) {
+      closeRenameModal();
+      resetRenameState();
+    }
+  });
+}
+
+// Event listeners for extension warning modal
+if (extensionModal) {
+  document.getElementById('extension-modal-cancel').onclick = () => {
+    extensionModal.style.display = 'none';
+    resetRenameState();
+  };
+  
+  document.getElementById('extension-modal-confirm').onclick = () => {
+    extensionModal.style.display = 'none';
+    if (pendingNewName) {
+      performRename(pendingNewName);
+      resetRenameState();
+    }
+  };
+  
+  window.addEventListener('click', (e) => {
+    if (e.target === extensionModal) {
+      extensionModal.style.display = 'none';
+      resetRenameState();
+    }
+  });
+}
