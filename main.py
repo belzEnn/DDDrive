@@ -18,7 +18,8 @@ from core.SendFile import Send, Split
 from core.GetFile import Get, Merge
 from database.Database import (create_db_and_tables, add_user_to_db, add_file_to_db,
                                get_user_files, get_file_by_id, delete_file, get_user_by_name,
-                               verify_password, get_uuid_by_name, rename_file
+                               verify_password, get_uuid_by_name, rename_file, create_folder,
+                               get_user_folders, get_user_folder, rename_user_folder, delete_empty_user_folder
 )
 load_dotenv()
 
@@ -151,12 +152,37 @@ async def login_post(request: Request, username: str = Form(...), password: str 
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(request: Request, username: str = Depends(get_current_user_redirect)):
-    files = await get_user_files(username)
+async def dashboard(request: Request, folder_id: int | None = None, username: str = Depends(get_current_user_redirect)):
+    current_folder = None
+
+    if folder_id is not None:
+        current_folder = await get_user_folder(
+            folder_id=folder_id,
+            username=username,
+        )
+
+        if current_folder is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Folder not found",
+            )
+
+    folders = await get_user_folders(
+        username=username,
+        parent_id=folder_id,
+    )
+
+    files = await get_user_files(username=username, folder_id=folder_id)
+
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
-        context={"username": username, "files": files}
+        context={
+            "username": username,
+            "files": files,
+            "folders": folders,
+            "current_folder": current_folder,
+        },
     )
 
 
@@ -168,9 +194,32 @@ async def logout():
 
 
 @app.post("/upload")
-async def upload_file(request: Request, file: UploadFile = File(...), username: str = Depends(get_current_user)):
+async def upload_file(request: Request, file: UploadFile = File(...), folder_id: int | None = Form(None), username: str = Depends(get_current_user)):
     uuid = await get_uuid_by_name(username)
-    upload_progress[username] = {"pct": 0, "done": False, "error": False}
+
+    if uuid is None:
+        raise HTTPException(
+            status_code=401,
+            detail="User not found",
+        )
+
+    if folder_id is not None:
+        folder = await get_user_folder(
+            folder_id=folder_id,
+            username=username,
+        )
+
+        if folder is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Folder not found",
+            )
+
+    upload_progress[username] = {
+        "pct": 0,
+        "done": False,
+        "error": False,
+    }
 
     temp_path = f"/tmp/{uuid}_{file.filename}"
 
@@ -199,26 +248,53 @@ async def upload_file(request: Request, file: UploadFile = File(...), username: 
 
         sent = 0
         currentid_chunk_list = []
+
         for chunk in chunks:
             try:
                 msg = await Send(client, "me", chunk)
+
                 if not msg:
-                    raise Exception("Send failed")
+                    raise RuntimeError("Send failed")
+
                 currentid_chunk_list.append(msg.id)
                 sent += 1
-                upload_progress[username]["pct"] = 5 + int((sent / total) * 90)
+
+                upload_progress[username]["pct"] = (
+                    5 + int((sent / total) * 90)
+                )
             finally:
                 if os.path.exists(chunk):
                     os.remove(chunk)
 
-        await add_file_to_db(username, file.filename, currentid_chunk_list, file_size)
-        upload_progress[username] = {"pct": 100, "done": True, "error": False}
+        await add_file_to_db(
+            username=username,
+            file_name=file.filename,
+            messageid_chunk_list=currentid_chunk_list,
+            file_size=file_size,
+            folder_id=folder_id,
+        )
 
-    except Exception as e:
+        upload_progress[username] = {
+            "pct": 100,
+            "done": True,
+            "error": False,
+        }
+
+    except Exception as error:
         import traceback
         traceback.print_exc()
-        upload_progress[username] = {"pct": 0, "done": False, "error": True}
-        raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
+
+        upload_progress[username] = {
+            "pct": 0,
+            "done": False,
+            "error": True,
+        }
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Upload failed: {error}",
+        )
+
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
@@ -279,6 +355,7 @@ async def delete_file_endpoint(file_id: int = Form(...), username: str = Depends
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail="Error deleting from the server")
+    
 @app.post("/rename")
 async def rename_file_endpoint(
     file_id: int = Form(...),
@@ -290,6 +367,123 @@ async def rename_file_endpoint(
         raise HTTPException(status_code=404, detail="File not found")
     await rename_file(file_id, new_name)
     return RedirectResponse(url="/dashboard", status_code=303)
+
+@app.post("/folders")
+async def create_folder_endpoint(
+    name: str = Form(...),
+    parent_id: int | None = Form(None),
+    username: str = Depends(get_current_user),
+):
+    name = name.strip()
+
+    if name in {".", ".."} or "/" in name or "\\" in name:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid folder name",
+        )
+
+    user_uuid = await get_uuid_by_name(username)
+
+    folder = await create_folder(
+        name=name,
+        user_uuid=user_uuid,
+        parent_id=parent_id,
+    )
+
+    if folder is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Parent folder not found",
+        )
+    if parent_id is None:
+        redirect_url = "/dashboard"
+    else:
+        redirect_url = f"/dashboard?folder_id={parent_id}"
+
+    return RedirectResponse(
+        url=redirect_url,
+        status_code=303,
+    )
+
+@app.post("/folders/rename")
+async def rename_folder_endpoint(
+    folder_id: int = Form(...),
+    new_name: str = Form(...),
+    username: str = Depends(get_current_user),
+):
+    new_name = new_name.strip()
+
+    if (
+        not new_name
+        or len(new_name) > 255
+        or new_name in {".", ".."}
+        or "/" in new_name
+        or "\\" in new_name
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid folder name",
+        )
+
+    user_uuid = await get_uuid_by_name(username)
+
+    if user_uuid is None:
+        raise HTTPException(
+            status_code=401,
+            detail="User not found",
+        )
+
+    result = await rename_user_folder(
+        folder_id=folder_id,
+        new_name=new_name,
+        user_uuid=user_uuid,
+    )
+
+    if result == "not_found":
+        raise HTTPException(
+            status_code=404,
+            detail="Folder not found",
+        )
+
+    if result == "already_exists":
+        raise HTTPException(
+            status_code=409,
+            detail="A folder with this name already exists",
+        )
+
+    return {"ok": True}
+
+@app.post("/folders/delete")
+async def delete_folder_endpoint(
+    folder_id: int = Form(...),
+    username: str = Depends(get_current_user),
+):
+    user_uuid = await get_uuid_by_name(username)
+
+    if user_uuid is None:
+        raise HTTPException(
+            status_code=401,
+            detail="User not found",
+        )
+
+    result = await delete_empty_user_folder(
+        folder_id=folder_id,
+        user_uuid=user_uuid,
+    )
+
+    if result == "not_found":
+        raise HTTPException(
+            status_code=404,
+            detail="Folder not found",
+        )
+
+    if result == "not_empty":
+        raise HTTPException(
+            status_code=409,
+            detail="Folder is not empty",
+        )
+
+    return {"ok": True}
 
 if __name__ == '__main__':
     import uvicorn

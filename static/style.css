@@ -378,6 +378,149 @@ body {
 }
 .content-top h2 { font-size: 15px; font-weight: 600; }
 
+.content-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.content-eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.back-link {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: var(--t);
+}
+.back-link:hover { color: var(--acc-text); background: var(--acc-light); border-color: var(--acc); }
+.back-link svg { width: 16px; height: 16px; }
+.btn-new-folder { display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.btn-new-folder svg { width: 16px; height: 16px; }
+
+/* ── FOLDERS ── */
+.folders-section { display: flex; flex-direction: column; gap: 9px; }
+.section-heading { display: flex; align-items: center; gap: 7px; }
+.section-heading h3 { font-size: 12px; font-weight: 600; color: var(--text2); }
+.section-heading span {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 99px;
+  background: var(--acc-light);
+  color: var(--acc-text);
+  font-size: 10px;
+  font-weight: 700;
+}
+.folders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+.folder-card {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: var(--t);
+  animation: rowIn .3s var(--ease) both;
+}
+.folder-open {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px;
+  color: inherit;
+  text-decoration: none;
+}
+.folder-card:hover {
+  color: var(--acc-text);
+  background: var(--acc-light);
+  border-color: var(--acc);
+  transform: translateY(-1px);
+}
+.folder-icon {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--acc-text);
+  background: var(--acc-light);
+  border-radius: 9px;
+}
+.folder-icon svg { width: 19px; height: 19px; }
+.folder-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.folder-chevron { width: 14px; height: 14px; flex-shrink: 0; color: var(--text3); }
+.folder-card:hover .folder-chevron { color: var(--acc); }
+.folder-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transform: translateX(4px);
+  pointer-events: none;
+  transition: opacity .15s var(--ease), transform .15s var(--ease);
+}
+.folder-card:hover .folder-actions,
+.folder-card:focus-within .folder-actions {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+.folder-card:hover .folder-chevron,
+.folder-card:focus-within .folder-chevron { display: none; }
+.folder-action {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: var(--t);
+}
+.folder-action svg { width: 14px; height: 14px; }
+.folder-rename-btn:hover { color: var(--acc-text); background: var(--acc-light); border-color: var(--acc); }
+.folder-delete-btn:hover { color: var(--red); background: var(--red-light); border-color: var(--red-border); }
+
+@media (hover: none) {
+  .folder-actions { opacity: 1; transform: none; pointer-events: auto; }
+  .folder-chevron { display: none; }
+}
+
 /* ── FILES TABLE ── */
 .files-box {
   background: var(--surface);
@@ -483,6 +626,7 @@ body {
 }
 .empty-state svg { margin: 0 auto 12px; display: block; }
 .empty-state p { font-size: 14px; }
+.empty-state span { display: block; margin-top: 5px; font-size: 12px; color: var(--text3); }
 
 /* ── MODAL ── */
 .modal-overlay {
@@ -533,6 +677,56 @@ body {
 .modal-box h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
 .modal-box p  { font-size: 13px; color: var(--text2); margin-bottom: 1.5rem; }
 .modal-actions { display: flex; justify-content: center; gap: 10px; }
+
+.folder-modal-box { text-align: left; }
+.folder-modal-box h3,
+.folder-modal-box > p { text-align: center; }
+.modal-icon--folder { color: var(--acc-text); background: var(--acc-light); }
+.modal-field { display: block; margin: 4px 0 22px; }
+.modal-field span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text2);
+}
+.modal-field input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  font: inherit;
+  font-size: 14px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.modal-field input::placeholder { color: var(--text3); }
+.modal-field input:focus { border-color: var(--acc); box-shadow: 0 0 0 3px var(--acc-ring); }
+.modal-submit { height: 36px; }
+.modal-error {
+  display: none;
+  margin: -10px 0 16px !important;
+  color: var(--red) !important;
+  text-align: center;
+}
+.modal-error.visible { display: block; }
+
+@media (max-width: 680px) {
+  .sidebar { display: none; }
+  .content { padding: 16px; }
+  .content-top { align-items: flex-end; }
+  .btn-new-folder { width: 36px; padding: 0; font-size: 0; }
+  .folders-grid { grid-template-columns: 1fr; }
+  .files-head,
+  .file-row { grid-template-columns: 34px minmax(0, 1fr) 76px; }
+  .files-head > :nth-child(3),
+  .files-head > :nth-child(4),
+  .file-row > :nth-child(3),
+  .file-row > :nth-child(4) { display: none; }
+}
 
 /* ── DRAG & DROP ── */
 .drop-overlay {

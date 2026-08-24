@@ -13,6 +13,150 @@ function applyTheme() {
 function toggleTheme() { dark = !dark; applyTheme(); }
 applyTheme();
 
+// ── CREATE FOLDER ──────────────────────────────────────────────────────────
+const folderModal = document.getElementById('folder-modal');
+const newFolderBtn = document.getElementById('new-folder-btn');
+const folderModalCancel = document.getElementById('folder-modal-cancel');
+const folderNameInput = document.getElementById('folder-name');
+
+function openFolderModal() {
+  if (!folderModal) return;
+  folderModal.style.display = 'flex';
+  folderNameInput.value = '';
+  requestAnimationFrame(() => folderNameInput.focus());
+}
+
+function closeFolderModal() {
+  if (!folderModal) return;
+  folderModal.style.display = 'none';
+}
+
+if (newFolderBtn) newFolderBtn.addEventListener('click', openFolderModal);
+if (folderModalCancel) folderModalCancel.addEventListener('click', closeFolderModal);
+if (folderModal) {
+  folderModal.addEventListener('click', (event) => {
+    if (event.target === folderModal) closeFolderModal();
+  });
+  folderModal.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeFolderModal();
+  });
+}
+
+// ── RENAME / DELETE FOLDER ─────────────────────────────────────────────────
+const folderRenameModal = document.getElementById('folder-rename-modal');
+const folderRenameForm = document.getElementById('folder-rename-form');
+const folderRenameId = document.getElementById('folder-rename-id');
+const folderRenameName = document.getElementById('folder-rename-name');
+const folderRenameError = document.getElementById('folder-rename-error');
+const folderDeleteModal = document.getElementById('folder-delete-modal');
+const folderDeleteForm = document.getElementById('folder-delete-form');
+const folderDeleteId = document.getElementById('folder-delete-id');
+const folderDeleteCopy = document.getElementById('folder-delete-copy');
+const folderDeleteError = document.getElementById('folder-delete-error');
+
+function setModalError(element, message = '') {
+  if (!element) return;
+  element.textContent = message;
+  element.classList.toggle('visible', Boolean(message));
+}
+
+async function responseError(response, fallback) {
+  try {
+    const data = await response.json();
+    return data.detail || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function closeFolderRenameModal() {
+  if (!folderRenameModal) return;
+  folderRenameModal.style.display = 'none';
+  setModalError(folderRenameError);
+}
+
+function closeFolderDeleteModal() {
+  if (!folderDeleteModal) return;
+  folderDeleteModal.style.display = 'none';
+  setModalError(folderDeleteError);
+}
+
+document.addEventListener('click', (event) => {
+  const renameButton = event.target.closest('.folder-rename-btn');
+  if (renameButton && folderRenameModal) {
+    folderRenameId.value = renameButton.dataset.folderId;
+    folderRenameName.value = renameButton.dataset.folderName;
+    setModalError(folderRenameError);
+    folderRenameModal.style.display = 'flex';
+    requestAnimationFrame(() => {
+      folderRenameName.focus();
+      folderRenameName.select();
+    });
+    return;
+  }
+
+  const deleteButton = event.target.closest('.folder-delete-btn');
+  if (deleteButton && folderDeleteModal) {
+    folderDeleteId.value = deleteButton.dataset.folderId;
+    folderDeleteCopy.textContent = `Delete “${deleteButton.dataset.folderName}”? The folder must be empty.`;
+    setModalError(folderDeleteError);
+    folderDeleteModal.style.display = 'flex';
+  }
+});
+
+document.getElementById('folder-rename-cancel')?.addEventListener('click', closeFolderRenameModal);
+document.getElementById('folder-delete-cancel')?.addEventListener('click', closeFolderDeleteModal);
+
+folderRenameModal?.addEventListener('click', (event) => {
+  if (event.target === folderRenameModal) closeFolderRenameModal();
+});
+folderDeleteModal?.addEventListener('click', (event) => {
+  if (event.target === folderDeleteModal) closeFolderDeleteModal();
+});
+
+folderRenameForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const newName = folderRenameName.value.trim();
+  if (!newName) return folderRenameName.focus();
+
+  try {
+    const response = await fetch('/folders/rename', {
+      method: 'POST',
+      body: new FormData(folderRenameForm),
+    });
+    if (!response.ok) {
+      setModalError(folderRenameError, await responseError(response, 'Could not rename folder.'));
+      return;
+    }
+    location.reload();
+  } catch {
+    setModalError(folderRenameError, 'Network error. Please try again.');
+  }
+});
+
+folderDeleteForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  try {
+    const response = await fetch('/folders/delete', {
+      method: 'POST',
+      body: new FormData(folderDeleteForm),
+    });
+    if (!response.ok) {
+      setModalError(folderDeleteError, await responseError(response, 'Could not delete folder.'));
+      return;
+    }
+    location.reload();
+  } catch {
+    setModalError(folderDeleteError, 'Network error. Please try again.');
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  closeFolderRenameModal();
+  closeFolderDeleteModal();
+});
+
 // ── UPLOAD PILL ────────────────────────────────────────────────────────────
 const fileInput = document.getElementById('file-input');
 const pill      = document.getElementById('upload-pill');
@@ -81,8 +225,19 @@ function pillReset() {
 function startUpload(file) {
   pillUploading(file.name);
 
-  const formData = new FormData();
-  formData.append('file', file);
+  const uploadForm = document.getElementById('upload-form');
+  const formData = new FormData(uploadForm);
+  formData.set('file', file);
+
+  const folderInput = uploadForm.querySelector('[name="folder_id"]');
+  const folderFromUrl = new URLSearchParams(window.location.search).get('folder_id');
+  const currentFolderId = folderInput?.value || folderFromUrl;
+
+  if (currentFolderId) {
+    formData.set('folder_id', currentFolderId);
+  } else {
+    formData.delete('folder_id');
+  }
 
   fetch('/upload', { method: 'POST', body: formData })
     .catch(() => {
