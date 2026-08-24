@@ -1108,6 +1108,15 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
 .file-row { min-height: 54px; padding: 8px 16px; }
 .file-row:hover { background: color-mix(in srgb, var(--acc-light) 58%, transparent); }
 .file-icon { background: var(--surface-2); border: 1px solid var(--border); }
+.file-icon img {
+  opacity: .72;
+  transition: filter .2s var(--ease), opacity .2s var(--ease);
+}
+[data-theme="dark"] .file-icon img {
+  filter: brightness(0) invert(1);
+  opacity: .76;
+}
+.file-row:hover .file-icon img { opacity: 1; }
 .file-size { color: var(--text2); font-size: 12px; }
 .act-btn,
 .folder-action { background: var(--surface-2); }
