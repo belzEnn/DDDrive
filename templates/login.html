@@ -3,17 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    (function() {
+      if (localStorage.getItem('theme') !== 'light') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
   <title>DDDrive — Login</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
 </head>
-<body class="auth-body" id="auth-body">
+<body class="auth-body" id="auth-body">ц
 
   <button class="theme-btn auth-theme-btn" onclick="toggleTheme()" aria-label="Toggle theme" id="theme-btn">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
   </button>
 
+  <div class="auth-glow auth-glow--one"></div>
+  <div class="auth-glow auth-glow--two"></div>
+
+  <main class="auth-shell">
   <div class="auth-card">
     <div class="auth-logo">
       <div class="auth-logo-icon">
@@ -22,6 +33,7 @@
     </div>
 
     <h1 class="auth-title" id="form-title">Sign in to your account</h1>
+    <p class="auth-sub" id="form-sub">Welcome back. Enter your details to continue.</p>
 
     {% if error %}
     <div class="auth-error">
@@ -47,17 +59,17 @@
       <a href="#" id="toggle-link">Register here</a>
     </p>
   </div>
+  </main>
 
 <script>
   const DARK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
   const LIGHT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>`;
 
-  let dark = localStorage.getItem('theme') === 'dark';
-  const body = document.getElementById('auth-body');
+  let dark = localStorage.getItem('theme') !== 'light';
   const btn  = document.getElementById('theme-btn');
 
   function applyTheme() {
-    body.setAttribute('data-theme', dark ? 'dark' : '');
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
     btn.innerHTML = dark ? DARK_ICON : LIGHT_ICON;
     localStorage.setItem('theme', dark ? 'dark' : 'light');
   }
@@ -80,6 +92,7 @@
     isLogin = !isLogin;
     form.action = isLogin ? '/login' : '/register';
     title.textContent = isLogin ? 'Sign in to your account' : 'Create an account';
+    sub.textContent = isLogin ? 'Welcome back. Enter your details to continue.' : 'Create your workspace in a few seconds.';
     mainBtn.textContent = isLogin ? 'Log in' : 'Sign up';
     toggleText.textContent = isLogin ? "Don't have an account?" : 'Already have an account?';
     toggleLink.textContent = isLogin ? 'Register here' : 'Log in';

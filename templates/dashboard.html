@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script>
     (function() {
-      if (localStorage.getItem('theme') === 'dark') {
+      if (localStorage.getItem('theme') !== 'light') {
         document.documentElement.setAttribute('data-theme', 'dark');
       }
     })();
@@ -20,7 +20,7 @@
 
   <header class="topbar">
     <div class="topbar-left">
-      <span class="logo-text">DDDrive</span>
+      <a href="/dashboard" class="logo-text">DD<span>Drive</span></a>
     </div>
 
     <div class="topbar-center">
@@ -31,6 +31,7 @@
             <line x1="12" y1="3" x2="12" y2="15"/>
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           </svg>
+          <span class="upload-label">Upload</span>
         </label>
         <div class="pill-body" id="pill-body">
           <span class="pill-name" id="pill-name"></span>
@@ -61,15 +62,41 @@
 
   <div class="layout">
     <aside class="sidebar">
-      <nav>
-        <a href="#" class="nav-item active">
+      <nav class="sidebar-nav">
+        <p class="sidebar-label">Workspace</p>
+        <a href="/dashboard" class="nav-item {% if not current_folder %}active{% endif %}">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
           </svg>
           All files
         </a>
+
+        {% if visible_folders %}
+        <p class="sidebar-label sidebar-label--spaced">Folders</p>
+        {% for folder in visible_folders[:5] %}
+        <a href="/dashboard?folder_id={{ folder.id }}" class="nav-item {% if current_folder and current_folder.id == folder.id %}active{% endif %}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z"/>
+          </svg>
+          <span>{{ folder.name }}</span>
+        </a>
+        {% endfor %}
+        {% endif %}
+
+        {% if files %}
+        <p class="sidebar-label sidebar-label--spaced">Recently</p>
+        {% for file in files[:4] %}
+        <div class="nav-item nav-item--static" title="{{ file.file_name }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>
+          </svg>
+          <span>{{ file.file_name }}</span>
+        </div>
+        {% endfor %}
+        {% endif %}
       </nav>
+
     </aside>
 
     <main class="content">
